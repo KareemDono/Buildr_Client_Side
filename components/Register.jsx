@@ -24,6 +24,8 @@ import { SvgXml } from "react-native-svg";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { TouchableOpacity } from "react-native-gesture-handler";
 
+const registerEndpoint = "https://buidrbackend.cyclic.app/api/users";
+
 const svgBackground = `
   <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 500 150" preserveAspectRatio="none">
     <path d="M0,100 C125,160 480,-60 550,40 L500,150 L0,150 Z" style="stroke: none; fill: #c8ddeb;"></path>
@@ -40,6 +42,7 @@ const RegisterPage = ({ navigation }) => {
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
 
+  const [birthDateModified, setBirthDateModified] = useState(false);
   const [birthDate, setBirthDate] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
 
@@ -65,6 +68,7 @@ const RegisterPage = ({ navigation }) => {
   const onChange = (event, selectedDate) => {
     if (selectedDate) {
       setBirthDate(selectedDate);
+      setBirthDateModified(true);
     }
   };
 
@@ -208,7 +212,7 @@ const RegisterPage = ({ navigation }) => {
       phoneNumber: phoneNumber !== "" && validatePhoneNumber(phoneNumber),
       password: password !== "" && validatePassword(password),
       confirmPassword: confirmPassword !== "",
-      birthDate: true, // Assume birth date is always valid
+      birthDate: birthDateModified, // Assume birth date is always valid
     };
 
     setFieldValidations(validations);
@@ -216,7 +220,34 @@ const RegisterPage = ({ navigation }) => {
     const isValid = Object.values(validations).every((valid) => valid);
 
     if (isValid) {
-      // Perform registration logic
+      const userData = {
+        first_name: firstName,
+        last_name: lastName,
+        username: username,
+        email: email,
+        phone_number: parseInt(phoneNumber),
+        birth_date: birthDate,
+        city: cityInput,
+        password: password,
+      };
+      //POST USER
+      fetch(registerEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(userData),
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          // Handle the response from the backend
+          console.log(data); // You can customize this based on your requirements
+          navigation.navigate('LoginPage');
+        })
+        .catch((error) => {
+          // Handle any errors that occurred during the request
+          console.error(error);
+        });
     } else {
       setFieldValidations(validations);
     }
@@ -274,6 +305,24 @@ const RegisterPage = ({ navigation }) => {
               <View style={styles.row}>
                 <View style={styles.inputContainer}>
                   <TextInput
+                    ref={emailRef}
+                    label="Email"
+                    mode="outlined"
+                    style={[
+                      styles.input,
+                      !fieldValidations.email && styles.inputError,
+                    ]}
+                    error={!fieldValidations.email}
+                    returnKeyType="next"
+                    onSubmitEditing={() => cityRef.current.focus()}
+                    value={email}
+                    onChangeText={handleEmailChange}
+                  />
+                </View>
+              </View>
+              <View style={styles.row}>
+                <View style={styles.inputContainer}>
+                  <TextInput
                     ref={cityRef}
                     label="City"
                     mode="outlined"
@@ -292,7 +341,7 @@ const RegisterPage = ({ navigation }) => {
                       <ScrollView style={styles.cityList}>
                         {cityList.map((city) => (
                           <TouchableWithoutFeedback
-                            key={city.id}
+                            key={city.id} // Assign a unique key prop to each city item
                             onPress={() => handleCitySelect(city)}
                           >
                             <View style={styles.cityListItemContainer}>
@@ -349,23 +398,26 @@ const RegisterPage = ({ navigation }) => {
                     style={[
                       styles.button,
                       styles.pickerButton,
-                      { backgroundColor: "#11182711" },
+                      { backgroundColor: "black" },
                     ]}
                     onPress={toggleDatepicker}
-                  >
-                    <Text style={[styles.buttonText, { color: "#075985" }]}>
-                      Cancel{" "}
-                    </Text>
-                  </TouchableOpacity>
+                  ></TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.button, styles.pickerButton]}
+                    style={[
+                      styles.button,
+                      styles.pickerButton,
+                      { backgroundColor: "black" },
+                      { flexDirection: "row" },
+                      { justifyContent: "space-around" },
+                    ]}
                     onPress={confirmIOSDate}
                   >
                     <Text style={[styles.buttonText]}>Confirm</Text>
                   </TouchableOpacity>
                 </View>
               )}
+
               {!showPicker && (
                 <Pressable onPress={toggleDatepicker}>
                   <TextInput
@@ -374,12 +426,13 @@ const RegisterPage = ({ navigation }) => {
                     mode="outlined"
                     style={[
                       styles.input,
-                      !fieldValidations.birthDate && styles.inputError,
+                      !fieldValidations.birthDate &&
+                        birthDateModified &&
+                        styles.inputError,
                     ]}
-                    error={!fieldValidations.birthDate}
-                    returnKeyType="next"
-                    onSubmitEditing={() => phoneNumberRef.current.focus()}
-                    value={birthDate.toDateString()} // Convert Date object to string for display
+                    error={!fieldValidations.birthDate && birthDateModified}
+                    placeholder="Birth Date"
+                    value={birthDate.toDateString()}
                     editable={false}
                     onPressIn={toggleDatepicker}
                   />
@@ -478,7 +531,7 @@ const RegisterPage = ({ navigation }) => {
                 Already registered?{" "}
                 <Text
                   style={styles.signInLink}
-                  onPress={() => navigation.navigate("Login")}
+                  onPress={() => navigation.navigate("LoginPage")}
                 >
                   Sign in
                 </Text>
@@ -514,7 +567,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "black",
   },
-  
+
   buttonText: {
     fontSize: 14,
     fontWeight: "500",
@@ -551,17 +604,17 @@ const styles = StyleSheet.create({
   logoContainer: {
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 30,
-    marginBottom: 20,
+    marginBottom: 10,
   },
   logoImage: {
     width: 100,
     height: 100,
     resizeMode: "contain",
+    marginTop: 5,
   },
   cardContainer: {
-    width: "80%",
-    marginVertical: 20,
+    width: "84%",
+    marginVertical: -10,
     elevation: 4,
     backgroundColor: "#00",
   },
